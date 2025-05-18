@@ -7,12 +7,23 @@ import re
 import ast
 import parse_text
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
-input_json = "Your json file"  # TODO
-output_csv = "Your output csv file"  # TODO
-api_key_openai = "Your API Key (OpenAI)"  # TODO
-generate_model = "gpt-4o" #TODO
-evaluation_model = "gpt-4o" #TODO
+
+# TODO Path of your JSON file (the `CSTutorBench.json` dataset obtained from https://shorturl.at/aFyqQ).
+input_json = "CSTutorBench.json"
+# TODO Path of your output document (in CSV format)
+output_csv = "result_GPT-4o.csv"
+# TODO API key of the model to be tested
+api_key_generate = " "
+# TODO API key of the model to evaluate (default is GPT-4o)
+api_key_evaluation = " "
+# TODO Name of the model to be tested
+generate_model = " "
+# TODO Name of the model to evaluate (default is GPT-4o)
+evaluation_model = "gpt-4o"
+# TODO Number of concurrent threads
+threads = 1
 
 
 evaluation_prompt = """
@@ -70,6 +81,7 @@ Return your evaluation in the following format:\n
 """
 
 
+# Structured output for the evaluation section (ensure your API SDK supports structured output)
 functions_evaluation = {
   "name": "evaluate",
   "description": "Evaluate how closely the AI Tutor's response aligns with the Human Tutor's response across five educational quality dimensions",
@@ -122,6 +134,7 @@ functions_evaluation = {
 }
 
 
+# Process the original file, split question-answer pairs, and extract key information.
 def process_json(file_path):
     with open(file_path, "r", encoding="utf-8") as f:
         data = json.load(f)
@@ -153,28 +166,27 @@ def process_json(file_path):
     return processed_data
 
 
+# Remove code block structures in generated responses.
 def remove_markdown_code_fencing(text: str) -> str:
-    # 1. 移除多行代码块 ```lang\n...\n```
     text = re.sub(r'```(?:[\w+]+\n)?(.*?)```', lambda m: m.group(1), text, flags=re.DOTALL)
-
-    # 2. 移除行内代码 `code`
     text = re.sub(r'`([^`]+)`', r'\1', text)
 
     return text.strip()
 
 
-def generate_answer(model_name, api_key, title, text, background):
+# Generate AI tutor responses based on the preceding dialogue.
+def generate_answer(model_name, api_key_openrouter, title, text, background):
     folder_path = "Background"
     file_path = os.path.join(folder_path, f"{background}.txt")
     with open(file_path, "r", encoding="utf-8") as f:
         readme_content = f.read()
     history = [{"role": "system", "content": "You are a Tutor for UNSW COMP1531 Software Engineering Fundamentals. "
-                                             "Please respond to the student's last question (do not answer other questions) based on the following issue or Q&A group. "
+                                             "Please respond to the student's last question (Please do not answer other questions) based on the following issue or Q&A group. "
                                              "You can provide relevant URLs to assist the student's understanding when appropriate. "
                                              f"Here is the project backend Readme for reference:\n'''{readme_content}'''\n"
                                              "The response format should be as follows: \n"
-                                             "Answer: [Your response here.]"}]
-    client = OpenAI(api_key=api_key)
+                                             "Answer: [Your response here]."}]
+    client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=api_key_openrouter)
     answer = client.chat.completions.create(
         model=model_name,
         messages=history + [{"role": "user", "content": f"{title}"}]+[text],
@@ -182,13 +194,18 @@ def generate_answer(model_name, api_key, title, text, background):
         max_tokens=5000
     )
     ai_answer = remove_markdown_code_fencing(answer.choices[0].message.content)
-    ai_answer = ai_answer.split("nswer:")[1]
+
+    try:
+        ai_answer = ai_answer.split("nswer:")[1]
+    except IndexError:
+        ai_answer = ai_answer
     return ai_answer
 
 
-def evaluation(model_name, api_key, text1, text2, text3, text4):
+# Compare the AI tutor's and human tutor's responses and assign a score.
+def evaluation(model_name, api_key_openai, text1, text2, text3, text4):
     history = [{"role": "system", "content": evaluation_prompt}]
-    client = OpenAI(api_key=api_key)
+    client = OpenAI(api_key=api_key_openai)
     answer = client.chat.completions.create(
         model=model_name,
         messages=history + [{"role": "user", "content": f"Please compare the following two answers and evaluate their quality.The is a {text4} query"},
@@ -202,23 +219,23 @@ def evaluation(model_name, api_key, text1, text2, text3, text4):
 
     return answer.choices[0].message.function_call.arguments
 
-# main
+
+# Main
 file_path = input_json
 result = process_json(file_path)
 data_list = []
+max_retries = 3
 
-for temp in tqdm(result):
+
+def process_single_temp(temp):
     retry_count = 0
-    max_retries = 3
-    success = False
-
-    while retry_count < max_retries and not success:
+    while retry_count < max_retries:
         try:
             AI_answer = generate_answer(model_name=generate_model,
-                                        api_key=api_key_openai,
+                                        api_key_openrouter=api_key_generate,
                                         title=temp[2], text=temp[4], background=temp[5])
             AI_evaluation = evaluation(model_name=evaluation_model,
-                                       api_key=api_key_openai,
+                                       api_key_openai=api_key_evaluation,
                                        text1=temp[3], text2=AI_answer, text3=temp[4], text4=temp[6])
             AI_evaluation = ast.literal_eval(AI_evaluation)
             score = AI_evaluation["LLM_sub_scores"]
@@ -242,18 +259,24 @@ for temp in tqdm(result):
             sum_score = int(accuracy_score) + int(clarity_score) + int(conciseness_score) + int(
                 personalization_score) + int(engagement_score)
 
-            data_list.append([id_clear, category_clear, human_answer, AI_answer, explanation, score,
-                              accuracy_score, clarity_score, conciseness_score, personalization_score, engagement_score,
-                              sum_score])
-            success = True
+            return [id_clear, category_clear, human_answer, AI_answer, explanation, score,
+                    accuracy_score, clarity_score, conciseness_score, personalization_score, engagement_score,
+                    sum_score]
         except Exception as e:
             retry_count += 1
             print(f"Retry {retry_count} for {temp[0]} - Error: {e}")
             time.sleep(1)
+    print(f"Failed after {max_retries} retries for {temp[0]}")
+    return None
 
-    if not success:
-        print(f"Failed after {max_retries} retries for {temp[0]}")
-        continue
+
+with ThreadPoolExecutor(max_workers=threads) as executor:
+    futures = [executor.submit(process_single_temp, temp) for temp in result]
+
+    for future in tqdm(as_completed(futures), total=len(futures)):
+        res = future.result()
+        if res:
+            data_list.append(res)
 
 
 df = pd.DataFrame(data_list, columns=["ID", "Category", "Human answer", "AI Answer", "AI Evaluation", "Score",
@@ -270,5 +293,4 @@ for col in target_cols:
     new_row[col] = averages[col]
 df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
 df.to_csv(output_csv, index=False, encoding='utf-8-sig')
-
 print("complete")
