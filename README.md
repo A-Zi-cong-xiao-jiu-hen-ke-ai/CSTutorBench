@@ -54,5 +54,4 @@ the LLM's explanation of its scores, scores across five evaluation dimensions, a
 If you have any questions, feedback, or suggestions, please open an issue or submit a pull request. We'd love to hear from you!  
 
 **Please email >**
-> [yunfeng.wan@unsw.edu.au](yunfeng.wan@unsw.edu.au)  
-> [zekai.cheng@student.unsw.edu.au](zekai.cheng@student.unsw.edu.au)
+> [yunfeng.wan@unsw.edu.au](yunfeng.wan@unsw.edu.au)  > [zekai.cheng@student.unsw.edu.au](zekai.cheng@student.unsw.edu.au)
