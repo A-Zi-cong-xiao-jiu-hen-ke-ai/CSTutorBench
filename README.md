@@ -14,8 +14,7 @@ We benchmark leading LLMs—including GPT-4o, Claude, Llama 4, and others—on t
 
 Please download the dataset from the following link:
 
-📥 [Click here to download the dataset](https://shorturl.at/aFyqQ)  
-
+📥 [Click here to download the dataset](https://shorturl.at/aFyqQ)
 **Note:** 
 Please place CSTBrech.json and the Background folder in the same directory as Evaluation.py. 
 
