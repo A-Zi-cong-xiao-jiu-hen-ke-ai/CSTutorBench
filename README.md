@@ -40,7 +40,8 @@ evaluation_model = "gpt-4o"
 # TODO Number of concurrent threads
 threads = 1
 ```
-**Note:**Currently, only API calls in the OpenAI format are supported.
+**Note:** 
+Currently, only API calls in the OpenAI format are supported.
 ---
 
 ### 3. Run `Evaluation.py` and wait for the results
