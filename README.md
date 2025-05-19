@@ -23,6 +23,8 @@ Please place CSTBrech.json and the Background folder in the same directory as Ev
 ### 2. Complete the TODOs in `Evaluation.py`
 
 Open `Evaluation.py` and fill in the necessary details marked as `TODO`.
+**Note:** 
+Currently, only API calls in the OpenAI format are supported.
 
 ```bash
 # TODO Path of your JSON file (the `CSTutorBench.json` dataset obtained from https://shorturl.at/aFyqQ).
@@ -40,8 +42,6 @@ evaluation_model = "gpt-4o"
 # TODO Number of concurrent threads
 threads = 1
 ```
-**Note:** 
-Currently, only API calls in the OpenAI format are supported.
 ---
 
 ### 3. Run `Evaluation.py` and wait for the results
