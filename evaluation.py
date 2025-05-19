@@ -256,8 +256,8 @@ def process_single_temp(temp):
             conciseness_score = score["Conciseness"]
             personalization_score = score["Personalization"]
             engagement_score = score["Engagement"]
-            sum_score = int(accuracy_score) + int(clarity_score) + int(conciseness_score) + int(
-                personalization_score) + int(engagement_score)
+            sum_score = 9*int(accuracy_score) + 3*int(clarity_score) + 4*int(conciseness_score) + 2*int(
+                personalization_score) + 2*int(engagement_score)
 
             return [id_clear, category_clear, human_answer, AI_answer, explanation, score,
                     accuracy_score, clarity_score, conciseness_score, personalization_score, engagement_score,
